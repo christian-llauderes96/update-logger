@@ -26,7 +26,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(\App\Filament\Pages\Auth\CustomLogin::class)
             // ->brandName('DevLog System') // This changes the Sidebar top text AND the Title
             ->favicon(asset(env('APP_ICON', 'apple-touch-icon.png')))
             ->colors([

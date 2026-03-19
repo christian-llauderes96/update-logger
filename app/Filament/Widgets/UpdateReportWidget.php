@@ -4,7 +4,10 @@ namespace App\Filament\Widgets;
 use App\Models\SystemUpdate;
 use Filament\Forms\Components\DatePicker;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -23,91 +26,73 @@ class UpdateReportWidget extends BaseWidget
     public function table(Table $table): Table
     {
         return $table
-            // 1. The Query: Eager load relationships for speed
             ->query(
                 SystemUpdate::query()
-                    ->with(['system', 'user']) 
-                    ->latest() // Show newest updates first by default
+                    ->with(['system', 'user'])
+                    ->latest()
             )
-            // 2. The Columns
             ->columns([
-                Tables\Columns\TextColumn::make('system.name')
+                TextColumn::make('system.name')
                     ->label('System')
-                    ->sortable()
-                    ->searchable(),
-
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Developer')
-                    ->sortable()
-                    ->hidden(fn () => !auth()->user()->role === 'admin'), // Optional: hide if not admin
-
-                Tables\Columns\TextColumn::make('title')
-                    ->label('Update Title')
-                    ->searchable()
-                    ->wrap(), // Good for long descriptions
-
-                Tables\Columns\TextColumn::make('version')
-                    ->label('Ver.')
-                    ->badge()
-                    ->color('gray'),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Logged Date')
-                    ->dateTime('M d, Y H:i')
                     ->sortable(),
+                TextColumn::make('user.name')
+                    ->label('Developer'),
+                TextColumn::make('title')
+                    ->label('Update Title')
+                    ->wrap(),
+                TextColumn::make('created_at')
+                    ->label('Date')
+                    ->dateTime('M d, Y'),
             ])
-            // 3. The Filters (Ownership + Date Range)
             ->filters([
-                // FILTER A: The "Just Me" Toggle (Only for Admins)
+                SelectFilter::make('system_id')
+                    ->label('Filter by System')
+                    ->relationship('system', 'name')
+                    ->preload(),
+
                 TernaryFilter::make('user_id')
                     ->label('Ownership')
-                    ->placeholder('All Team Updates')
+                    ->placeholder('All Updates')
                     ->trueLabel('My Updates Only')
                     ->falseLabel('Other Developers')
                     ->queries(
                         true: fn ($query) => $query->where('user_id', auth()->id()),
                         false: fn ($query) => $query->where('user_id', '!=', auth()->id()),
-                        blank: fn ($query) => $query, // Show all
-                    )
-                    ->visible(fn () => auth()->user()->role === 'admin'),
+                        blank: fn ($query) => $query,
+                    ),
 
-                // FILTER B: The Date Range
-                Tables\Filters\Filter::make('created_at')
+                Filter::make('created_at')
                     ->form([
-                        DatePicker::make('from')
-                            ->label('From Date')
-                            ->placeholder('Start'),
-                        DatePicker::make('until')
-                            ->label('Until Date')
-                            ->placeholder('End'),
+                        DatePicker::make('from'),
+                        DatePicker::make('until'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when($data['from'], fn ($query, $date) => $query->whereDate('created_at', '>=', $date))
                             ->when($data['until'], fn ($query, $date) => $query->whereDate('created_at', '<=', $date));
                     })
-                    ->indicateUsing(function (array $data): array {
-                        $indicators = [];
-                        if ($data['from'] ?? null) {
-                            $indicators[] = 'From ' . \Carbon\Carbon::parse($data['from'])->toFormattedDateString();
-                        }
-                        if ($data['until'] ?? null) {
-                            $indicators[] = 'Until ' . \Carbon\Carbon::parse($data['until'])->toFormattedDateString();
-                        }
-                        return $indicators;
-                    })
             ])
-            // 4. UI Layout Settings
-            ->filtersFormColumns(2) // Puts date pickers side-by-side
-            ->actions([
-                // Quick view button if you want to see full description
-                Tables\Actions\ViewAction::make(),
+            ->headerActions([
+                // NEW: DOCUMENT GENERATOR MODAL
+                Action::make('generate_doc')
+                    ->label('Generate Document')
+                    ->icon('heroicon-o-document-text')
+                    ->color('success')
+                    ->modalHeading('Report Preview')
+                    ->modalWidth('4xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelAction(false) // We added our own buttons in the view
+                    ->modalContent(fn ($livewire) => view('filament.pages.report-modal', [
+                        'records' => $livewire->getFilteredTableQuery()->get(),
+                    ])),
+                Action::make('print')
+                    ->label('Print Table')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->extraAttributes([
+                        'onclick' => 'window.print(); return false;',
+                    ]),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()->role === 'admin'),
-                ]),
-            ]);
+            ->filtersFormColumns(3);
     }
 }

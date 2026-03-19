@@ -30,7 +30,7 @@ class SystemPolicy
     public function create(User $user): bool
     {
         // Only the Super Admin can register a NEW system
-        return $user->email === 'christian.llauderes1296@gmail.com';
+        return true;
     }
 
     /**
@@ -39,7 +39,7 @@ class SystemPolicy
     public function update(User $user, System $system): bool
     {
         // Only the Owner of the system OR the Super Admin can edit it
-        return $user->id === $system->user_id || $user->email === 'christian.llauderes1296@gmail.com';
+        return $user->id === $system->user_id || $user->role === 'admin';
     }
 
     /**
@@ -47,7 +47,7 @@ class SystemPolicy
      */
     public function delete(User $user, System $system): bool
     {
-        return $user->email === 'christian.llauderes1296@gmail.com'; // Only admin can delete
+        return $user->role === 'admin'; // Only admin can delete
     }
 
     /**

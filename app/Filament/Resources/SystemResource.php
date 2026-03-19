@@ -13,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
@@ -23,9 +24,10 @@ class SystemResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-cpu-chip';
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('user_id', auth()->id());
+        return parent::getEloquentQuery(); 
+        // ->where('user_id', auth()->id()); //<-- REMOVE OR COMMENT THIS LINE if you want filter own system
     }
 
     public static function form(Form $form): Form
@@ -61,22 +63,38 @@ class SystemResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-        ->columns([
-            Tables\Columns\TextColumn::make('name')->searchable(),
-            
-            // Static date from the System table
-            Tables\Columns\TextColumn::make('developed_at')
-                ->label('Dev Started')
-                ->date()
-                ->sortable(),
+            ->columns([
+                Tables\Columns\TextColumn::make('name')
+                    ->searchable()
+                    ->sortable(),
+                
+                // Static date from the System table
+                Tables\Columns\TextColumn::make('developed_at')
+                    ->label('Dev Started')
+                    ->date()
+                    ->sortable(),
 
-            // Dynamic date pulled from the LATEST System Update
-            Tables\Columns\TextColumn::make('latestUpdate.created_at')
-    ->label('Last Update')
-    ->since()
-    ->color(fn ($state) => $state && $state->diffInDays(now()) > 30 ? 'danger' : 'success')
-    ->sortable(),
-        ]);
+                // Dynamic date pulled from the LATEST System Update
+                Tables\Columns\TextColumn::make('latestUpdate.created_at')
+                    ->label('Last Update')
+                    ->since()
+                    ->color(fn ($state) => $state && $state->diffInDays(now()) > 30 ? 'danger' : 'success')
+                    ->sortable(),
+            ])
+            ->filters([
+                // THE OWNERSHIP FILTER
+                Tables\Filters\TernaryFilter::make('my_systems')
+                    ->label('System Ownership')
+                    ->placeholder('All Systems')
+                    ->trueLabel('My Systems Only')
+                    ->falseLabel('Others')
+                    ->queries(
+                        true: fn ($query) => $query->where('user_id', auth()->id()),
+                        false: fn ($query) => $query->where('user_id', '!=', auth()->id()),
+                        blank: fn ($query) => $query, // Shows everything by default
+                    ),
+            ])
+            ->filtersFormColumns(1); // Keeps the filter dropdown clean
     }
 
     public static function getRelations(): array
