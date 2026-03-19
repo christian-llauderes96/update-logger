@@ -85,13 +85,6 @@ class UpdateReportWidget extends BaseWidget
                     ->modalContent(fn ($livewire) => view('filament.pages.report-modal', [
                         'records' => $livewire->getFilteredTableQuery()->get(),
                     ])),
-                Action::make('print')
-                    ->label('Print Table')
-                    ->icon('heroicon-o-printer')
-                    ->color('info')
-                    ->extraAttributes([
-                        'onclick' => 'window.print(); return false;',
-                    ]),
             ])
             ->filtersFormColumns(3);
     }
